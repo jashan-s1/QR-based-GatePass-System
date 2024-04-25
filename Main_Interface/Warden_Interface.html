@@ -1,0 +1,174 @@
+<!-- Warden-Interface -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warden Interface</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        .request-actions {
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            padding: 10px;
+            margin-right: 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .approve-btn {
+            background-color: #27ae60;
+        }
+
+        .reject-btn {
+            background-color: #e74c3c;
+        }
+
+        .call-btn {
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #f39c12;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Gatepass Requests</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>UID</th>
+                    <th>Branch</th>
+                    <th>Date</th>
+                    <th>Place of Visit</th>
+                    <th>Time Out</th>
+                    <th>Time In</th>
+                    <th>Gatepass Type</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="requestsTableBody">
+                <!-- Gatepass requests will be populated here dynamically -->
+            </tbody>
+        </table>
+
+        <button class="call-btn" onclick="callParents()">Call Now</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js"></script>
+    <script>
+        const socket = new WebSocket('ws://localhost:3300', 'warden-socket');
+        const requestsList = []; // Array to store gatepass requests
+        let globalRequestsList = [];
+
+        // WebSocket message handler
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'newGatepassRequest') {
+                requestsList.push(data.data);
+                globalRequestsList.push(data.data);
+                updateUI();
+            }
+        };
+
+        // Function to update the UI with gatepass requests
+        function updateUI() {
+            const tableBody = document.getElementById('requestsTableBody');
+            tableBody.innerHTML = '';
+
+            requestsList.forEach(request => {
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${request.name}</td>
+                    <td>${request.uid}</td>
+                    <td>${request.branch}</td>
+                    <td>${request.date}</td>
+                    <td>${request.place}</td>
+                    <td>${request.timeOut}</td>
+                    <td>${request.timeIn}</td>
+                    <td>${request.gatepassType}</td>
+                    <td>${request.status}</td>
+                    <td>
+                        <button class="action-btn approve-btn" onclick="approveRequest('${request.id}')">Approve</button>
+                        <button class="action-btn reject-btn" onclick="rejectRequest('${request.id}')">Reject</button>
+                    </td>
+                `;
+                tableBody.appendChild(newRow);
+            });
+        }
+
+        // Function to approve a request
+        function approveRequest(requestId) {
+            // Find the request data using the requestId
+            const requestData = globalRequestsList.find(request => request.id === requestId);
+            if (requestData) {
+                const approvalData = { type: 'approve', requestId: requestId, requestData: requestData };
+                socket.send(JSON.stringify(approvalData));
+            } else {
+                console.error('Request data not found for requestId:', requestId);
+            }
+        }
+
+        // Function to reject a request
+        function rejectRequest(requestId) {
+            // Find the request data using the requestId
+            const requestData = globalRequestsList.find(request => request.id === requestId);
+            if (requestData) {
+                const rejectionData = { type: 'reject', requestId: requestId, requestData: requestData };
+                socket.send(JSON.stringify(rejectionData));
+            } else {
+                console.error('Request data not found for requestId:', requestId);
+            }
+        }
+
+    </script>
+</body>
+
+</html>

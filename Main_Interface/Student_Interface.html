@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Interface</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-top: 10px;
+        }
+
+
+        input {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #approvalButtonContainer {
+            margin-top: 20px;
+        }
+
+        #qrcode {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Submit Gatepass Request</h2>
+        <form id="gatepassForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
+
+            <label for="uid">UID:</label>
+            <input type="text" id="uid" required>
+
+            <label for="branch">Branch:</label>
+            <input type="text" id="branch" required>
+
+            <label for="date">Date:</label>
+            <input type="date" id="date" required>
+
+            <label for="place">Place of Visit:</label>
+            <input type="text" id="place" required>
+
+            <label for="timeOut">Time Out:</label>
+            <input type="time" id="timeOut" required>
+
+            <label for="timeIn">Time In:</label>
+            <input type="time" id="timeIn" required>
+
+            <label for="gatepassType">Gatepass Type:</label>
+            <select id="gatepassType" required>
+                <option value="dayout">Day Out</option>
+                <option value="nightout">Night Out</option>
+            </select>
+
+            <button type="button" onclick="submitGatepassRequest()">Submit Request</button>
+            <div id="approvalButtonContainer"></div>
+            <div id="receiptContent"></div> <!-- Added div for receipt content -->
+            <div id="qrcode"></div>
+        </form>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <script>
+        const socket = new WebSocket('ws://localhost:3300', 'student-socket');
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            // Check if the message indicates approval
+            if (data.type === 'approve' || data.type === 'reject') {
+                // Display the button below the form
+                data.requestData.status = data.type === 'approve' ? 'Approved' : 'Rejected';
+                const approvedRequest = data.requestData;
+                const approvalButtonContainer = document.getElementById('approvalButtonContainer');
+                const button = document.createElement('button');
+                button.textContent = 'View Gatepass Receipt';
+                button.addEventListener('click', () => {
+                    // Render receipt locally on the same page
+                    renderReceiptLocally(approvedRequest);
+                });
+                approvalButtonContainer.appendChild(button);
+            }
+        };
+
+        // Function to render receipt locally on the same page
+        function renderReceiptLocally(requestData) {
+            const receiptContent = document.getElementById('receiptContent');
+            receiptContent.innerHTML = `
+                <h2>Gatepass Receipt</h2>
+                <p><strong>Name:</strong> ${requestData.name}</p>
+                <p><strong>UID:</strong> ${requestData.uid}</p>
+                <p><strong>Branch:</strong> ${requestData.branch}</p>
+                <p><strong>Date:</strong> ${requestData.date}</p>
+                <p><strong>Place of Visit:</strong> ${requestData.place}</p>
+                <p><strong>Time Out:</strong> ${requestData.timeOut}</p>
+                <p><strong>Time In:</strong> ${requestData.timeIn}</p>
+                <p><strong>Gatepass Type:</strong> ${requestData.gatepassType}</p>
+                <p><strong>Status:</strong> <span style="color: ${requestData.status === 'Approved' ? 'green' : 'red'}">${requestData.status}</span></p>
+            `;
+
+            if(requestData.status === 'Approved'){
+                // Generate QR code containing UID
+            const qrCodeContainer = document.getElementById('qrcode');
+            qrCodeContainer.innerHTML = ''; // Clear previous QR code
+            const qrText = `GatePass ID : ${requestData.id}\nUID: ${requestData.uid}\nStatus:${requestData.status}`;
+            const qr = new QRCode(qrCodeContainer, {
+                text : qrText,
+                width: 200,
+                height: 200
+            });
+
+            } 
+        }
+        
+        
+
+        function submitGatepassRequest() {
+            // Collect form data
+            const formData = {
+                name: document.getElementById('name').value,
+                uid: document.getElementById('uid').value,
+                branch: document.getElementById('branch').value,
+                date: document.getElementById('date').value,
+                place: document.getElementById('place').value,
+                timeOut: document.getElementById('timeOut').value,
+                timeIn: document.getElementById('timeIn').value,
+                gatepassType: document.getElementById('gatepassType').value,
+            };
+
+            // Emit the gatepass submission to the server
+            socket.send(JSON.stringify({ type: 'submitGatepass', data: formData }));
+
+            // Optionally, you can clear the form or provide user feedback
+            document.getElementById('gatepassForm').addEventListener('submit', (event) => {
+                event.preventDefault(); // Prevent form submission
+            });
+            alert('Gatepass request submitted successfully!');
+
+        }
+    </script>
+
+</body>
+
+</html>
